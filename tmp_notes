@@ -1,0 +1,32 @@
+<a href="/default.asp"
+
+<a href="#top"
+
+<a href="/images/colormap_80.gif"
+
+<a href="http://www.w3schools.com"
+
+<a href="http://www.linkedin.com/shareArticle?mini=true&url=http://www.w3schools.com'+loc+'&source=w3schools.com"
+
+href="http://weibo.com/bilibiliweb
+
+href="https://secure.bilibili.tv/login?sns=qq
+
+ href="/home/page/show/classic
+
+
+
+ direct send parameter from the main domain site.
+
+ 1. if we can find "/"
+ 2. else, if we can find "?"
+ 3. else we find the last dot.
+
+
+domain name appears in the first three words and the following word is the domainKind;
+
+
+1:		href like "/home/page/show/classic"
+2:		"/default.asp"
+3:		"http(s)://secure.bilibili.tv"	
+4:		""

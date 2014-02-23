@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Getting Started Extension's Popup</title>
+    <style>
+      body {
+        min-width: 357px;
+        overflow-x: hidden;
+      }
+
+      img {
+        margin: 5px;
+        border: 2px solid black;
+        vertical-align: middle;
+        width: 75px;
+        height: 75px;
+      }
+    </style>
+
+    <!--
+      - JavaScript and HTML must be in separate files: see our Content Security
+      - Policy documentation[1] for details and explanation.
+      -
+      - [1]: http://developer.chrome.com/extensions/contentSecurityPolicy.html  
+     -->
+  <script src="jquery-1.11.0.min.js"></script>
+  <script src="popup.js"></script>
+  <script src="background.js"></script>
+
+  </head>
+  <body>
+    <form name="input"  method="get">
+      inDomainNum(Default: 5): <input type="text" id = "inDomainNum" name="inDomainNum" value = "5">
+      crossDomainNum: <input type="text" name="crossDomainNum" value = "1">
+      kindANum(href like href = "/default.asp"):    <input type="text" name="crossDomainNum" value = "1"> 
+
+                  
+
+      <br><br>
+      <input type="submit" value="Start" id="submit" >
+    </form>
+
+    <form name="abcform"  method="get">
+      cross link num from A: <input type="text" id = "numA" name="numA" value = "5">
+      cross link num from B: <input type="text" id="numB" value="5">
+      website list: (1 in each row, "http://" is needed )
+      <textarea id="WebsitesList">http://www.baidu.com</textarea>
+      <br><br>
+      <input type="submit" value="startCross" id="startCross" >
+    </form>
+
+
+
+  </body>
+</html>
+
