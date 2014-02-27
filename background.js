@@ -8,12 +8,6 @@ function WebPage(url, srcUrl, srcDomain,srcType) {
   this.tab = "";
 }
 
-function CrossOpen(domain, crossLink, crossLink2) {
-  this.A = domain;
-  this.B = crossLink;
-  this.C = crossLink2;
-}
-
 
 //var openUrl = new Array();
 
@@ -25,7 +19,8 @@ var TrackHead = {
   runned: 0,
   WebPageList: new Array(WebPage),
   weblist: [],
-  max: 1,                   //how many pages to climb in alexa, every page 25 websites
+  startPage: 0,
+  max: 2,                   //how many pages to climb in alexa, every page 25 websites
   inDomainNum: 0,
   crossDomainNum: 5,
   countInDomain: 0,
@@ -43,11 +38,22 @@ var TrackHead = {
   kindA: 0,                    //initial number of kindA
   currentI: 0,
 
-  fetchWeblist: function () {
+  fetchWeblist: function (min, max) {
+    var start = 0;
+    var loopEnd = 0;
+
+    if (min != undefined && max != undefined) {
+        start = min;
+        loopEnd = max;
+    }
+    else {
+      start = this.startPage;
+      end = this.max;
+    }
     var webHead = "http://www.";
     var weburlHead = "http://www.alexa.com/topsites/global;"
 
-    for (var i = 0; i < this.max; i++) {
+    for (var i = start; i < loopEnd; i++) {
       if (i == 0) 
         var webUrl = 'http://www.alexa.com/topsites'
       else 
@@ -473,6 +479,9 @@ var buildCross = {
   currentI: 0,
   tablist: new Array(),
   openLinkList: new Array(),
+  testPageID: 0,
+  openLinkList1: new Array,
+  openLinkList2: new Array,
 
   crossOpenListA: function(weblist) {
     for (i = 0; i < weblist.length; i++) {
@@ -514,19 +523,68 @@ var buildCross = {
     }
   },
 
-  start: function(weblist, numA, numB) {
-//    console.log(weblist);
-//    TrackHead.weblist = ['http://doe.cs.northwestern.edu/xpan/x.html'];
-    TrackHead.weblist = ["http://www.ebay.com"];
-    TrackHead.weblist.push("http://www.youtube.com");
+  blackList: function(list) {
+    blackList = ["http://www.hao123.com", "http://www.imdb.com"]
 
+    newList = new Array();
+
+    var block = 0;
+
+
+    for (i = 0; i < list.length; i++) {
+      for (j = 0; j < blackList.length; j++) {
+        if (list[i] == blackList[j])
+          block = 1;
+      }
+      if (block == 0) {
+        newList.push(list[i]);
+      }
+      block = 0;
+    }
+
+    return newList;
+
+  },
+
+
+  start: function(weblist, numA, numB) {
+    console.log(weblist);
+//    TrackHead.weblist = ['http://doe.cs.northwestern.edu/xpan/x.html'];
+//    TrackHead.weblist = ["http://www.ebay.com"];
+//    TrackHead.weblist.push("http://www.youtube.com");
+    
+      buildCross.crossOpenList = new Object();
+      buildCross.tablist =  new Array();
+      buildCross.openLinkList = new Array();
+      TrackHead.weblist = new Array();
+      TrackHead.crossDomainLink = new Array();
+
+    TrackHead.weblist.push(weblist);
 
 //    TrackHead.fetchWeblist();
-    buildCross.crossOpenListA(TrackHead.weblist);
+    TrackHead.weblist = buildCross.blackList(TrackHead.weblist);
 
+
+    var testPage = chrome.extension.getURL("test.html");
+    var views = chrome.extension.getViews();
+    for (var i = 0; i < views.length; i++) {
+      var view = views[i];
+      if (view.location.href == testPage){
+        break;
+      }
+      if (i == views.length - 1) {
+        chrome.tabs.create({ url: testPage}, function(tab){
+          buildCross.testPageID = tab.id;    
+        });
+      }
+    }
+
+
+    buildCross.crossOpenListA(TrackHead.weblist);
     TrackHead.crossDomainNum = 1;
     TrackHead.fetchFinalList(0);
     //chrome.tabs.create({ url: ""});
+
   },
 
   second:function() {
@@ -552,13 +610,56 @@ var buildCross = {
     // buildCross.currentI++;
     //chrome.runtime.sendMessage({type: "content script", link:buildCross.openLinkList[buildCross.currentI].B})
 
-    chrome.tabs.create( { url: buildCross.openLinkList[buildCross.currentI] }, function(tab) { 
-    
-      setTimeout(function() {buildCross.openLinkB(tab.id, buildCross.currentI)}, 10000);
-      
-      buildCross.tablist[buildCross.currentI] = tab.id; 
-    });
+    if (buildCross.openLinkList.length >= 100) {
+      for (var i = 0; i < 100; i++) {
+        buildCross.openLinkList1.push(buildCross.openLinkList[i]);
+      }
+      for (var i = 100; i < buildCross.openLinkList.length && i < 200; i++) {
+        buildCross.openLinkList2.push(buildCross.openLinkList[i]);
+      }
+    }
 
+    if (buildCross.openLinkList.length == 0) {  //send message to popup.js
+      chrome.runtime.sendMessage({type: "check_result", noCross:1});
+      buildCross.runned = 0;
+      buildCross.secondCross = 0;
+      buildCross.thirdCross = 0;
+    }
+    else {
+
+      source = buildCross.openLinkList[buildCross.currentI];
+      dest = buildCross.openLinkList[buildCross.currentI + 2];
+      tmpSplit = source.match(/:\/\/(?:www\.)?(.[^/]+)(.*)/)[1].split(".");
+      sourceDomain = tmpSplit[ tmpSplit.length - 2 ];
+      if (sourceDomain == "com")
+        sourceDomain = tmpSplit[ tmpSplit.length - 3 ];
+      tmpSplit = dest.match(/:\/\/(?:www\.)?(.[^/]+)(.*)/)[1].split(".");
+      destDomain = tmpSplit[ tmpSplit.length - 2 ];
+      if (destDomain == "com")
+        destDomain = tmpSplit[ tmpSplit.length - 3 ];
+      chrome.runtime.sendMessage({type: "check_result", noCross:0, sourceDomain: sourceDomain, destDomain: destDomain});
+      
+
+      var testPage = chrome.extension.getURL("test.html");
+      
+      var views = chrome.extension.getViews();
+      for (var i = 0; i < views.length; i++) {
+        var view = views[i];
+        if (view.location.href == testPage && !view.imageAlreadySet) {
+          var x = view.document.getElementsByTagName("p")[0];
+          x.innerHTML = sourceDomain + "   " + destDomain
+        }
+      }
+    
+      
+
+      chrome.tabs.create( { url: buildCross.openLinkList[buildCross.currentI] }, function(tab) { 
+      
+        setTimeout(function() {buildCross.openLinkB(tab.id, buildCross.currentI)}, 6000);
+        
+        buildCross.tablist[buildCross.currentI] = tab.id; 
+      });
+    }
   },
 
   openLinkB: function(tabA, currentI) {
@@ -570,7 +671,7 @@ var buildCross = {
           chrome.tabs.executeScript(tabA, { 
             file: "content_script.js"});
         });
-      setTimeout(function() {buildCross.openLinkC(tabA, currentI)}, 10000);
+      setTimeout(function() {buildCross.openLinkC(tabA, currentI)}, 6000);
     }
     catch(err) {
       console.log("Error in openLinkB");
@@ -596,7 +697,7 @@ var buildCross = {
               chrome.tabs.executeScript(tabB, { 
                 file: "content_script.js"});
             });
-          setTimeout(function() {buildCross.removeTab(currentI)}, 3000);
+          setTimeout(function() {buildCross.removeTab(currentI)}, 6000);
         }
         else {
           buildCross.removeTab(currentI);
@@ -620,21 +721,23 @@ var buildCross = {
     // buildCross.tablist[currentI + 2] = tabC;
     
     chrome.tabs.query({}, function(result) {
-      for (i = 10; i < result.length; i++) {
-        chrome.tabs.remove(result[i].id);
+      for (i = 0; i < result.length - 2; i++) {
+        if (result[i].id != buildCross.testPageID) {
+          //chrome.tabs.remove(result[i].id);
+        }
       }
       if (currentI < buildCross.openLinkList.length - 3) {
         buildCross.currentI = currentI + 3;
         buildCross.third(1);
       }
       else {
+        buildCross.runned = 0;
+        buildCross.secondCross = 0;
+        buildCross.thirdCross = 0;
         console.log("Finished")
       }
     });
   },
-
-
-
 
   constructList: function() {
     for (x in buildCross.crossOpenList) {
@@ -692,22 +795,147 @@ function get_domain_name()
     }        
 }
   
+function framePage(url, frameDomains, crossLink) {
+  this.url = url;
+  this.frameDomains = frameDomains;
+  this.crossLink = crossLink;
+}
+
+var checkiFrame = {            //This object is used to find iframes in websites and 
+  framePages: new Array(),
+  weblist: new Array(),
+
+  start: function() {
+    //TrackHead.weblist = ["http://www.163.com"];
+    TrackHead.fetchWeblist(14,20)
+    this.weblist = TrackHead.weblist;
+
+    this.climbContent(0);
+  },
 
 
-//This function could be triggered when a request is finished.
-  // chrome.webNavigation.onCompleted.addListener(function(details) {
-  //   console.log("Finished: " + details.timeStamp + details.url);
- 
-  // });
+  // climb ith element in weblist, construct framePages if satisfied.
+  climbContent: function(i) {
+    var request = new XMLHttpRequest();
+    console.log(i + this.weblist[i]);
+    request.open("GET", this.weblist[i], true);
+    request.send();
+    var content = request.responsetText;
+    request.onreadystatechange = function() {
+      if (request.readyState == 4) {
+        var content = request.responseText;
+        tmpArray = checkiFrame.getiFrameTag(content, checkiFrame.weblist[i]);
+        if (tmpArray.length != 0) {
+          tmpLink = checkiFrame.getCrossLinkDiffDomains(content, checkiFrame.weblist[i], tmpArray);
+          if(tmpLink != "") {
+            checkiFrame.framePages.push(new framePage(checkiFrame.weblist[i], tmpArray, tmpLink));
+          }
+        }
+        if (i + 1 < checkiFrame.weblist.length) {
+          checkiFrame.climbContent(i + 1);           //recursively call itself.
+        }
+        else {
+          console.log("end");             //Climb ends.
+        }
+      }
+    }
+  },  
+
+  getDomain: function(web) {
 
 
 
-//  var viewTabUrl = chrome.extension.getURL('image.html');
-// chrome.tabs.create({ url: viewTabUrl});
-  //chrome.tabs.create("")
-  //chrome.extension.getBackgroundPage.show("hello");
-  
+    if (web.indexOf("javascript") != -1 || web.charAt(0) == "/" || web.charAt(0) == "#" 
+      || web.length == 0 || web.indexOf("about:blank") != -1 || web.indexOf("//") == -1)
+      return "-1";
+
+    tmpSplit = web.match(/:\/\/(?:www\.)?(.[^/]+)(.*)/)[1].split(".");
+    webDomain = tmpSplit[tmpSplit.length - 2];
+    
+
+    if (webDomain == "com" || webDomain == "edu" || webDomain == "co") 
+      webDomain = tmpSplit[tmpSplit.length - 3];
+    return webDomain
+  },
+
+  //Input: content of page, website is the url
+  //Output: return an array of iFrame domain, if exists
+  getiFrameTag: function(content, website) {
+    var frameDomains = new Array();
+    var lineBegin = 0;
+    var lineEnd = content.indexOf('\n', lineBegin);
+    var webDomain = checkiFrame.getDomain(website);
+
+    while (lineEnd != -1) {
+      var line = content.substring(lineBegin, lineEnd);
+      var frameBegin = line.indexOf("<iframe");
+      while (frameBegin != -1) {
+        frameEnd = line.indexOf(">", frameBegin);
+        frame = line.substring(frameBegin, frameEnd + 1)
+        frameSrc = frame.indexOf("src=\"");
+        if (frameSrc == -1)
+          frameSrc = frame.indexOf("src=\'");
+        if (frameSrc != -1) {
+          var frameSrcEnd = frame.indexOf("\"", frameSrc + 5);
+          if (frameSrcEnd == -1)
+            var frameSrcEnd = frame.indexOf("\'", frameSrc + 5);        
+          frameWeb = frame.substring(frameSrc + 5, frameSrcEnd);
+          frameDomain = checkiFrame.getDomain(frameWeb)
+          if ( frameDomain != "-1" && frameDomain != webDomain && frameDomains.indexOf(frameDomain) == -1)
+            frameDomains.push(frameDomain);
+        }
+        if (frameEnd == -1)
+          frameBegin = -1;
+        else
+          frameBegin = line.indexOf("<iframe", frameEnd);
+      }
+      lineBegin = lineEnd + 1;
+      lineEnd = content.indexOf("\n", lineBegin);
+    }
+    return frameDomains;
+  },
+
+  getCrossLinkDiffDomains: function(content, website, domainsArray) {
+    var crossLink = "";
+    var lineBegin = 0;
+    var lineEnd = content.indexOf('\n', lineBegin);
+    var webDomain = checkiFrame.getDomain(website);
+
+    while (lineEnd != -1) {
+      var line = content.substring(lineBegin, lineEnd);
+      var site = line.indexOf("<a");
+      while (site != -1) {
+        siteEnd = line.indexOf(">", site);
+        taga = line.substring(site, siteEnd + 1)
+        tagaHref = taga.indexOf("href=\"");
+        if (tagaHref == -1) 
+          tagaHref = taga.indexOf("href=\'");
+        if (tagaHref != -1) {
+          var tagaHrefEnd = taga.indexOf("\"", tagaHref + 6);
+          if (tagaHrefEnd == -1) 
+            tagaHrefEnd = taga.indexOf("\'", tagaHref + 6);     //end quote
+          tagaWeb = taga.substring(tagaHref + 6 , tagaHrefEnd);
+          tagaDomain = checkiFrame.getDomain(tagaWeb);
+          if (domainsArray.indexOf(tagaDomain) == -1 && webDomain != tagaDomain
+            && tagaDomain != "-1") {
+            crossLink = tagaWeb;
+            return crossLink            //here we return the first cross link!!!
+          }
+        }
+      if (siteEnd == -1) 
+          site = -1;
+        else
+          site = line.indexOf("<a", siteEnd);
+      }
+      lineBegin = lineEnd + 1;
+      lineEnd = content.indexOf('\n', lineBegin);
+    }
+    return crossLink;
+  }
+}
+
+//checkiFrame.start();
 
 
-//  kittenGenerator.requestKittens();
-//});
+
+
